@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>JMC Fast Food Dashboard</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+  <h1>🍗 JMC Fast Food Dashboard</h1>
+  <p id="welcome">Loading user...</p>
+  <button id="logoutBtn">Logout</button>
+
+  <hr>
+
+  <h2>🌦 Weather Checker</h2>
+  <p>Enter a city name to check the weather:</p>
+
+  <input id="city" placeholder="e.g., Davao">
+  <button id="getWeatherBtn">Get Weather</button>
+
+  <div id="weatherResult" style="margin-top: 15px;"></div>
+
+  <hr>
+
+  <h2>🍔 Sample Menu (Capstone Module Part)</h2>
+  <div class="top-menu-grid">
+    <div class="top-card hot">
+      <h3>Spicy Chicken Meal</h3>
+      <p>One-piece spicy chicken, rice, and drink.</p>
+      <span class="badge">Best Seller</span>
+    </div>
+
+    <div class="top-card">
+      <h3>JMC Burger Steak</h3>
+      <p>2 pcs patty with gravy, rice, and drink.</p>
+      <span class="badge">Combo Meal</span>
+    </div>
+
+    <div class="top-card">
+      <h3>Cheesy Fries</h3>
+      <p>Crispy fries with cheese sauce.</p>
+      <span class="badge">Snacks</span>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+    import {
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+    import {
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+
+    const welcome = document.getElementById("welcome");
+    const logoutBtn = document.getElementById("logoutBtn");
+
+    // --- Check Login Status + Email Verification ---
+    onAuthStateChanged(auth, async function(user) {
+      if (!user) {
+        window.location = "index.html";
+        return;
+      }
+
+      if (!user.emailVerified) {
+        alert("Please verify your email before accessing the dashboard.");
+        await signOut(auth);
+        window.location = "index.html";
+        return;
+      }
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const userData = userDoc.data();
+
+      // no optional chaining, no backticks
+      const nameToShow =
+        userData && userData.name ? userData.name : user.email;
+
+      welcome.textContent = "Welcome, " + nameToShow + "!";
+    });
+
+    // --- Logout ---
+    logoutBtn.addEventListener("click", function() {
+      localStorage.clear();
+      sessionStorage.clear();
+
+      signOut(auth).then(function() {
+        window.location = "index.html";
+      });
+    });
+
+    // --- Weather API Section ---
+    const API_KEY = "a62b0e9080461d2df139e073b802dbf2";
+
+    const cityInput = document.getElementById("city");
+    const getWeatherBtn = document.getElementById("getWeatherBtn");
+    const weatherResult = document.getElementById("weatherResult");
+
+    getWeatherBtn.addEventListener("click", async function() {
+      const city = cityInput.value.trim();
+
+      if (!city) {
+        weatherResult.textContent = "⚠️ Please enter a city.";
+        return;
+      }
+
+      const url =
+        "https://api.openweathermap.org/data/2.5/weather?q=" +
+        encodeURIComponent(city) +
+        "&appid=" + API_KEY +
+        "&units=metric";
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.cod !== 200) {
+          weatherResult.textContent = "❌ City not found. Try again.";
+          return;
+        }
+
+        weatherResult.innerHTML =
+          "<h3>Weather in " + data.name + "</h3>" +
+          "<p>🌡 Temperature: <b>" + data.main.temp + "°C</b></p>" +
+          "<p>☁ Condition: <b>" + data.weather[0].description + "</b></p>" +
+          "<p>💧 Humidity: <b>" + data.main.humidity + "%</b></p>";
+      } catch (error) {
+        weatherResult.textContent = "⚠️ Unable to fetch weather.";
+      }
+    });
+  </script>
+</body>
+</html>
